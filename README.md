@@ -1,6 +1,5 @@
 # mini-app-sdk
 
-一个支持 TypeScript 的小程序 WebView SDK，对外提供常用原生能力调用方法。构建产物同时支持 ESM、CommonJS、类型声明和浏览器全局构建。
 
 ## 安装
 
@@ -12,7 +11,7 @@
 
 ## 快速开始
 
-### npm / ESM
+### ESM
 
 ```ts
 import { miniSDK } from 'mini-app-sdk';
@@ -176,15 +175,6 @@ interface OpenCashierResult {
 }
 ```
 
-### getToken
-
-获取当前用户 token。底层调用原生 `getToken`。
-
-```ts
-const token = await miniSDK.getToken();
-console.log(token);
-```
-
 ## Bridge 兼容
 
 SDK 内部会自动兼容：
@@ -201,19 +191,5 @@ SDK 内部会自动兼容：
 - `miniSDK.getNotchScreenHeight()`：调用原生 `getSafeInset`。
 - `miniSDK.saveImage(options)`：调用原生 `saveImage`。
 - `miniSDK.openCashier(options)`：调用原生收银台并返回订单支付结果。
-- `miniSDK.getToken()`：调用原生 `getToken` 并返回 token。
 
-## 开发
 
-```bash
-npm install
-npm run typecheck
-npm run build
-```
-
-构建产物输出到 `dist`：
-
-- `dist/index.js`：ESM
-- `dist/index.cjs`：CommonJS
-- `dist/index.d.ts`：TypeScript 类型声明
-- `dist/mini-app-sdk.global.js`：浏览器全局构建，加载后挂载 `window.miniSDK` 和 `window.createMiniAppSDK`
