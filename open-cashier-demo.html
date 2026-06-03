@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mini-app-sdk API demo</title>
+    <style>
+      body {
+        box-sizing: border-box;
+        min-height: 100vh;
+        margin: 0;
+        padding: 32px 16px;
+        background: #f7f8fa;
+        color: #0b0b0b;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+      }
+
+      .demo {
+        max-width: 420px;
+        margin: 0 auto;
+        padding: 24px;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: 20px;
+        line-height: 28px;
+      }
+
+      p {
+        margin: 0 0 20px;
+        color: #60646f;
+        font-size: 14px;
+        line-height: 22px;
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      button {
+        width: 100%;
+        height: 44px;
+        border: 0;
+        border-radius: 8px;
+        background: #41a538;
+        color: #fff;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: #0f5eff;
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .form {
+        margin-top: 16px;
+        padding: 12px;
+        border-radius: 8px;
+        background: #f7f8fa;
+      }
+
+      .form h2 {
+        margin: 0 0 8px;
+        font-size: 14px;
+      }
+
+      .field {
+        display: grid;
+        grid-template-columns: 88px 1fr;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .field:last-child {
+        margin-bottom: 0;
+      }
+
+      .field label {
+        color: #60646f;
+        font-size: 12px;
+      }
+
+      .field input {
+        height: 32px;
+        padding: 0 8px;
+        border: 1px solid #d9dce3;
+        border-radius: 6px;
+        font-size: 13px;
+      }
+
+      pre {
+        box-sizing: border-box;
+        min-height: 96px;
+        margin: 20px 0 0;
+        padding: 12px;
+        overflow: auto;
+        border-radius: 8px;
+        background: #f7f8fa;
+        color: #0b0b0b;
+        font-size: 12px;
+        line-height: 18px;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="demo">
+      <h1>miniSDK API Demo</h1>
+      <p>测试 getAppConfig / login（获取 code 后请求 user/login）/ getAssets / openCashier（先请求 prepay）。</p>
+
+      <section class="actions">
+        <button id="getAppConfigButton" type="button">测试 getAppConfig</button>
+        <button id="loginButton" class="secondary" type="button">测试登录</button>
+        <button id="getAssetsButton" class="secondary" type="button">测试 getAssets</button>
+        <button id="openCashierButton" type="button">测试 openCashier</button>
+      </section>
+
+      <section class="form">
+        <h2>openCashier 预下单参数</h2>
+        <div class="field">
+          <label for="amountInput">amount</label>
+          <input id="amountInput" value="100" />
+        </div>
+        <div class="field">
+          <label for="currencyInput">currency</label>
+          <input id="currencyInput" value="USDT" />
+        </div>
+        <div class="field">
+          <label for="attachInput">attach</label>
+          <input id="attachInput" value="test" />
+        </div>
+        <div class="field">
+          <label for="descriptionInput">description</label>
+          <input id="descriptionInput" value="test" />
+        </div>
+        <div class="field">
+          <label for="deadlineInput">deadline(ms)</label>
+          <input id="deadlineInput" placeholder="留空=30分钟后" />
+        </div>
+      </section>
+
+      <pre id="result">等待操作...</pre>
+    </main>
+
+    <script src="./dist/mini-app-sdk@1.0.0.min.js"></script>
+    <script>
+      const resultElement = document.getElementById("result");
+      const getAppConfigButton = document.getElementById("getAppConfigButton");
+      const loginButton = document.getElementById("loginButton");
+      const getAssetsButton = document.getElementById("getAssetsButton");
+      const openCashierButton = document.getElementById("openCashierButton");
+      const amountInput = document.getElementById("amountInput");
+      const currencyInput = document.getElementById("currencyInput");
+      const attachInput = document.getElementById("attachInput");
+      const descriptionInput = document.getElementById("descriptionInput");
+      const deadlineInput = document.getElementById("deadlineInput");
+
+      const API_BASE = "https://user.bitdatech.com";
+
+      const allButtons = [
+        getAppConfigButton,
+        loginButton,
+        getAssetsButton,
+        openCashierButton,
+      ];
+
+      let cachedAuthToken = "";
+      let cachedOpenUid = "";
+
+      function setLoading(loading) {
+        allButtons.forEach((button) => {
+          button.disabled = loading;
+        });
+      }
+
+      function setResult(title, payload) {
+        resultElement.textContent =
+          title + "\n" + JSON.stringify(payload, null, 2);
+      }
+
+      function getSDK() {
+        if (!window.miniSDK) {
+          throw new Error("window.miniSDK 不存在，请先确认 dist 文件已构建并正确加载。");
+        }
+        return window.miniSDK;
+      }
+
+      async function callSDKMethod(methodName, params) {
+        const sdk = getSDK();
+        const method = sdk[methodName];
+        if (typeof method !== "function") {
+          throw new Error(
+            `miniSDK.${methodName} 不存在。请确认 SDK 已暴露该方法后再测试。`,
+          );
+        }
+        return params === undefined ? method.call(sdk) : method.call(sdk, params);
+      }
+
+      function extractLoginCode(loginResult) {
+        const code =
+          loginResult?.code ??
+          loginResult?.data?.code ??
+          loginResult?.result?.code;
+
+        if (!code || typeof code !== "string") {
+          throw new Error(
+            `login 返回中缺少 code，响应内容: ${JSON.stringify(loginResult)}`,
+          );
+        }
+
+        return code;
+      }
+
+      function extractAuthToken(loginResponse) {
+        const token =
+          loginResponse?.token ??
+          loginResponse?.access_token ??
+          loginResponse?.accessToken ??
+          loginResponse?.data?.token ??
+          loginResponse?.data?.access_token ??
+          loginResponse?.data?.accessToken;
+
+        return typeof token === "string" ? token : "";
+      }
+
+      function extractOpenUid(loginResponse) {
+        const openUid =
+          loginResponse?.open_uid ??
+          loginResponse?.openUid ??
+          loginResponse?.data?.open_uid ??
+          loginResponse?.data?.openUid;
+
+        return typeof openUid === "string" ? openUid : "";
+      }
+
+      async function requestUserLogin(code) {
+        const response = await fetch(`${API_BASE}/v1/ucard/user/login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ code }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `user/login 请求失败 (${response.status}): ${errorText || "unknown error"}`,
+          );
+        }
+
+        const data = await response.json();
+        const token = extractAuthToken(data);
+        const openUid = extractOpenUid(data);
+
+        if (!openUid) {
+          throw new Error(
+            `user/login 返回中缺少 open_uid，响应内容: ${JSON.stringify(data)}`,
+          );
+        }
+
+        cachedAuthToken = token;
+        cachedOpenUid = openUid;
+        return { token, openUid, raw: data };
+      }
+
+      async function requestPrepay() {
+        if (!cachedOpenUid) {
+          throw new Error("缺少 open_uid，请先点击「测试登录」完成 user/login。");
+        }
+
+        const payload = {
+          open_uid: cachedOpenUid,
+          amount: String(amountInput.value || "100"),
+          currency: String(currencyInput.value || "USDT"),
+          attach: String(attachInput.value || "test"),
+          description: String(descriptionInput.value || "test"),
+        };
+        const token = await resolveAuthToken();
+
+        const response = await fetch(`${API_BASE}/v1/ucard_provider/create_order`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            AUTHORIZATION: token ? `Bearer ${token}` : "",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `prepay 请求失败 (${response.status}): ${errorText || "unknown error"}`,
+          );
+        }
+
+        const data = await response.json();
+        const prepayId =
+          data?.prepay_id ?? data?.prepayId ?? data?.data?.prepay_id ?? data?.data?.prepayId;
+
+        if (!prepayId) {
+          throw new Error(
+            `prepay 返回中缺少 prepay_id/prepayId，响应内容: ${JSON.stringify(data)}`,
+          );
+        }
+
+        const amount = normalizePositiveNumber(
+          data?.amount ?? data?.data?.amount ?? amountInput.value,
+          100,
+        );
+        const currency = String(
+          data?.currency ?? data?.data?.currency ?? currencyInput.value ?? "USDT",
+        );
+        const description = String(
+          data?.description ??
+            data?.data?.description ??
+            descriptionInput.value ??
+            "test",
+        );
+        const attach = String(
+          data?.attach ?? data?.data?.attach ?? attachInput.value ?? "test",
+        );
+        const deadline = normalizePositiveNumber(
+          data?.deadline ??
+            data?.data?.deadline ??
+            deadlineInput.value,
+          Date.now() + 30 * 60 * 1000,
+        );
+
+        return { prepayId, amount, currency, description, attach, deadline, raw: data };
+      }
+
+      async function resolveAuthToken() {
+        if (cachedAuthToken) {
+          return cachedAuthToken;
+        }
+
+        return "";
+      }
+
+      function normalizePositiveNumber(raw, fallback) {
+        const value = Number(raw);
+        if (!Number.isFinite(value) || value <= 0) {
+          return fallback;
+        }
+        return value;
+      }
+
+      getAppConfigButton.addEventListener("click", async () => {
+        setLoading(true);
+        setResult("调用中: getAppConfig", { status: "loading" });
+        try {
+          const result = await callSDKMethod("getAppConfig");
+          setResult("getAppConfig 成功", result);
+        } catch (error) {
+          setResult("getAppConfig 失败", {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        } finally {
+          setLoading(false);
+        }
+      });
+
+      loginButton.addEventListener("click", async () => {
+        setLoading(true);
+        setResult("调用中: login", { step: "获取 code" });
+        try {
+          const loginResult = await callSDKMethod("login");
+          const code = extractLoginCode(loginResult);
+          setResult("获取 code 成功，请求 user/login", { code });
+
+          const userLogin = await requestUserLogin(code);
+          setResult("登录成功", {
+            code,
+            open_uid: userLogin.openUid,
+            tokenPreview:
+              userLogin.token.slice(0, 8) +
+              "..." +
+              userLogin.token.slice(-4),
+            login: userLogin.raw,
+          });
+        } catch (error) {
+          setResult("登录失败", {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        } finally {
+          setLoading(false);
+        }
+      });
+
+      getAssetsButton.addEventListener("click", async () => {
+        setLoading(true);
+        setResult("调用中: getAssets", { status: "loading" });
+        try {
+          const result = await callSDKMethod("getAssets");
+          setResult("getAssets 成功", result);
+        } catch (error) {
+          setResult("getAssets 失败", {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        } finally {
+          setLoading(false);
+        }
+      });
+
+      openCashierButton.addEventListener("click", async () => {
+        setLoading(true);
+        setResult("调用中: openCashier", { step: "请求 prepay_id" });
+
+        try {
+          const prepay = await requestPrepay();
+          setResult("prepay 成功，准备调用 openCashier", prepay);
+
+          const openCashierPayload = {
+            prepayId: String(prepay.prepayId || "").trim(),
+            amount: normalizePositiveNumber(prepay.amount, 100),
+            currency: String(prepay.currency || "").trim() || "USDT",
+            description: String(prepay.description ?? "").trim(),
+            attach: String(prepay.attach ?? "").trim(),
+            deadline: normalizePositiveNumber(
+              prepay.deadline,
+              Date.now() + 30 * 60 * 1000,
+            ),
+          };
+
+          if (!openCashierPayload.prepayId) {
+            throw new Error("prepayId 为空，无法调用 openCashier");
+          }
+
+          const result = await callSDKMethod("openCashier", openCashierPayload);
+          setResult("openCashier 成功", result);
+        } catch (error) {
+          setResult("openCashier 失败", {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        } finally {
+          setLoading(false);
+        }
+      });
+    </script>
+  </body>
+</html>
