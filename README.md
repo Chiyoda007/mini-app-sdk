@@ -125,6 +125,58 @@ await miniSDK.saveImage({
 
 传入 `arrayBuffer` 时，SDK 会自动转成普通数组后交给原生侧。
 
+### login
+
+获取用户登录凭证。原生侧会调用后端接口生成 `code` 并返回给 H5。
+
+```ts
+const { code } = await miniSDK.login();
+
+console.log(code);
+```
+
+返回结构：
+
+```ts
+interface LoginResult {
+  code: string; // 用户登录凭证
+}
+```
+
+### getAssets
+
+获取用户 USDT 资产列表。原生侧会调用后端接口并过滤出 `USDT` 币种数据后返回。
+
+```ts
+const assets = await miniSDK.getAssets();
+
+assets.forEach((asset) => {
+  console.log(asset.token_name);
+  console.log(asset.balance);
+  console.log(asset.total_usdt);
+});
+```
+
+返回结构：
+
+```ts
+interface AssetItem {
+  account: string;
+  balance: string;
+  balance_usdt: string;
+  frozen_balance: string;
+  frozen_usdt: string;
+  icon: string;
+  token_name: string;
+  token_whole_name: string;
+  total: string;
+  total_usdt: string;
+}
+
+type GetAssetsResult = AssetItem[];
+```
+
+
 ### openCashier
 
 打开 H5 收银台弹窗，用于交易确认和资金密码输入。
