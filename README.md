@@ -3,30 +3,12 @@
 
 ## 安装
 
-### 通过 script 引用
-
-```html
-<script src="./mini-app-sdk@1.0.0.min.js"></script>
-```
-
-## 快速开始
-
-### ESM
-
-```ts
-import { miniSDK } from 'mini-app-sdk';
-
-const appConfig = await miniSDK.getAppConfig();
-
-await miniSDK.goBackToApp();
-```
-
 ### 浏览器全局引入
 
 通过 `<script>` 引入全局构建后，可以直接使用 `window.miniSDK`：
 
 ```html
-<script src="./dist/mini-app-sdk.global.js"></script>
+<script src="./mini-app-sdk@1.0.0.min.js"></script>
 <script>
   window.miniSDK.getAppConfig().then(function (config) {
     console.log(config);
@@ -42,7 +24,19 @@ await miniSDK.goBackToApp();
     window.miniSDK.goBackToApp();
   }
 </script>
-<script src="./dist/mini-app-sdk.global.js" onload="onMiniSDKLoaded()"></script>
+<script src="./mini-app-sdk@1.0.0.min.js" onload="onMiniSDKLoaded()"></script>
+```
+
+## 快速开始
+
+### ESM
+
+```ts
+import { miniSDK } from 'mini-app-sdk';
+
+const appConfig = await miniSDK.getAppConfig();
+
+await miniSDK.goBackToApp();
 ```
 
 如果需要自定义 bridge 配置，可以创建独立实例：
@@ -226,14 +220,6 @@ interface OpenCashierResult {
   deadline: number;
 }
 ```
-
-## Bridge 兼容
-
-SDK 内部会自动兼容：
-
-- iOS `window.WKWebViewJavascriptBridge.callHandler`
-- Android `window.AndroidInterface[handlerName]`
-- 自定义 `bridgeAdapter`
 
 ## API
 
